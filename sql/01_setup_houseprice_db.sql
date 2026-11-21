@@ -190,7 +190,7 @@ CREATE INDEX idx_fact_building ON dw.fact_house_sales(building_id);
 CREATE INDEX idx_fact_yr_sold ON dw.fact_house_sales(yr_sold);
 
 -- =============================================================================
--- 4. TẦNG ETL LOGGING: Quản lý vết thực thi Pipeline
+-- 4. TẦNG ETL LOGGING & REJECT: Quản lý vết thực thi & Dòng dữ liệu bị loại
 -- =============================================================================
 DROP TABLE IF EXISTS etl.etl_log CASCADE;
 CREATE TABLE etl.etl_log (
@@ -203,20 +203,14 @@ CREATE TABLE etl.etl_log (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- =============================================================================
--- 5. PHÂN QUYỀN TOÀN BỘ BẢNG CHO USER AIRFLOW
--- =============================================================================
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA raw TO airflow;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA dw TO airflow;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA etl TO airflow;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA raw TO airflow;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA dw TO airflow;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA etl TO airflow;
-
-ALTER DEFAULT PRIVILEGES IN SCHEMA raw GRANT ALL ON TABLES TO airflow;
-ALTER DEFAULT PRIVILEGES IN SCHEMA dw GRANT ALL ON TABLES TO airflow;
-ALTER DEFAULT PRIVILEGES IN SCHEMA etl GRANT ALL ON TABLES TO airflow;
-
+DROP TABLE IF EXISTS etl.houseprice_reject CASCADE;
+CREATE TABLE etl.houseprice_reject (
+    reject_id BIGSERIAL PRIMARY KEY,
+    raw_id BIGINT,
+    id TEXT,
+    reason TEXT,
+    rejected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
 -- =============================================================================
 -- 5. PHÂN QUYỀN TOÀN BỘ BẢNG CHO USER AIRFLOW

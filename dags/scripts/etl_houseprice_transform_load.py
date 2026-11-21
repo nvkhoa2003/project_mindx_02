@@ -243,9 +243,34 @@ def main():
         with conn.cursor() as cur:
             log(cur, "PIPELINE", "START", "Transform + Load Houseprice to DW")
 
-            log(cur, "TRANSFORM", "START", "Build staging clean table")
+            log(cur, "TRANSFORM", "START", "Build staging clean table and isolate rejects")
             cur.execute(SQL_BUILD_STAGING)
-            log(cur, "TRANSFORM", "SUCCESS", "Staging clean table built")
+
+            # Đổ dữ liệu bị loại vào bảng etl.houseprice_reject
+            cur.execute("""
+                TRUNCATE TABLE etl.houseprice_reject;
+                INSERT INTO etl.houseprice_reject (raw_id, id, reason)
+                SELECT r.raw_id, r.id,
+                    CASE
+                        WHEN r.id IS NULL OR r.id !~ '^[0-9]+$' THEN 'Invalid ID format'
+                        WHEN r.saleprice IS NULL OR r.saleprice !~ '^[0-9]+(\.[0-9]+)?$' OR r.saleprice::NUMERIC <= 0 THEN 'Invalid or non-positive sale_price'
+                        ELSE 'Duplicate house_id record'
+                    END AS reason
+                FROM raw.houseprice_raw r
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM etl.houseprice_staging_clean s 
+                    WHERE s.house_id::TEXT = r.id AND s.house_id IS NOT NULL
+                );
+            """)
+
+            cur.execute("""
+                SELECT 
+                    (SELECT COUNT(*) FROM raw.houseprice_raw),
+                    (SELECT COUNT(*) FROM etl.houseprice_staging_clean),
+                    (SELECT COUNT(*) FROM etl.houseprice_reject);
+            """)
+            raw_cnt, clean_cnt, rejected_cnt = cur.fetchone()
+            log(cur, "TRANSFORM", "SUCCESS", f"Staging built: raw={raw_cnt}, clean={clean_cnt}, rejected={rejected_cnt}")
 
             log(cur, "LOAD_DIMS", "START", "Populate Dimension tables")
             cur.execute(SQL_LOAD_DIMENSIONS)

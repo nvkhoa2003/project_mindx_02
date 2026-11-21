@@ -33,12 +33,15 @@ def main() -> None:
         conn.commit()
 
         with conn.cursor() as cur:
-            # 1. Đếm số dòng bảng Raw và DW
+            # 1. Đếm số dòng bảng Raw, DW và Reject
             cur.execute("SELECT COUNT(*) FROM raw.houseprice_raw;")
             raw_cnt = cur.fetchone()[0]
 
             cur.execute("SELECT COUNT(*) FROM dw.fact_house_sales;")
             dw_cnt = cur.fetchone()[0]
+
+            cur.execute("SELECT COUNT(*) FROM etl.houseprice_reject;")
+            rejected_cnt = cur.fetchone()[0]
 
             # 2. Đếm số lượng Dimension records
             cur.execute("SELECT COUNT(*) FROM dw.dim_location;")
@@ -87,14 +90,18 @@ def main() -> None:
             if dw_cnt == 0:
                 raise ValueError("CHECK FAILED: Bảng Fact không có dữ liệu (dw_cnt = 0)!")
 
+            # 4.4. Đối soát số lượng: raw_cnt - rejected_cnt == dw_cnt
+            if (raw_cnt - rejected_cnt) != dw_cnt:
+                raise ValueError(f"CHECK FAILED: Sai lệch số liệu! raw_cnt ({raw_cnt}) - rejected_cnt ({rejected_cnt}) != dw_cnt ({dw_cnt})")
+
             # 5. Ghi log SUCCESS vào etl.etl_log
-            cur.execute(SQL_LOG, (RUN_ID, "CHECK", "SUCCESS", f"raw={raw_cnt}, dw={dw_cnt}, total_sales={float(total_sales):,.2f}"))
+            cur.execute(SQL_LOG, (RUN_ID, "CHECK", "SUCCESS", f"raw={raw_cnt}, dw={dw_cnt}, rejected={rejected_cnt}, total_sales={float(total_sales):,.2f}"))
         conn.commit()
 
         print("==================================================================")
         print("                   DATA QUALITY CHECK REPORT                      ")
         print("==================================================================")
-        print(f"CHECK OK | RUN_ID={RUN_ID} | raw_cnt={raw_cnt} | dw_cnt={dw_cnt}")
+        print(f"CHECK OK | RUN_ID={RUN_ID} | raw_cnt={raw_cnt} | dw_cnt={dw_cnt} | rejected_cnt={rejected_cnt}")
         print(f"Dimensions: location={loc_cnt} | building={bldg_cnt} | amenities={amen_cnt} | contract={contract_cnt}")
         print(f"Sale Price: Total=${float(total_sales):,.2f} | Avg=${float(avg_price):,.2f} | Min=${float(min_price):,.2f} | Max=${float(max_price):,.2f}")
         print("==================================================================")
