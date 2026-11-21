@@ -14,7 +14,7 @@ except ImportError:
 import psycopg2
 from psycopg2.extras import execute_values
 
-RUN_ID = f"RUN_{uuid.uuid4().hex[:8]}"
+RUN_ID = os.getenv("RUN_ID") or f"RUN_{uuid.uuid4().hex[:8]}"
 
 def env(name: str, default: str | None = None) -> str:
     v = os.getenv(name)

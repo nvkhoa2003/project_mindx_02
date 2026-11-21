@@ -6,7 +6,7 @@ import uuid
 
 import psycopg2
 
-RUN_ID = f"RUN_{uuid.uuid4().hex[:8]}"
+RUN_ID = os.getenv("RUN_ID") or f"RUN_{uuid.uuid4().hex[:8]}"
 
 def env(name: str, default: str | None = None) -> str:
     v = os.getenv(name)

@@ -29,6 +29,7 @@ DB_ENV = {
     "DB_USER": os.getenv("DB_USER", ""),
     "DB_PASS": os.getenv("DB_PASS", ""),
     "CSV_PATH": os.getenv("CSV_PATH", "/opt/airflow/data/Houseprice_raw.csv"),
+    "RUN_ID": "{{ run_id }}",
 }
 
 with DAG(
@@ -46,18 +47,21 @@ with DAG(
         task_id="ingest_csv_to_raw",
         bash_command=f'{PYTHON} "{INGEST_SCRIPT}"',
         env=DB_ENV,
+        append_env=True,
     )
 
     transform_load = BashOperator(
         task_id="transform_load_dw",
         bash_command=f'{PYTHON} "{ETL_SCRIPT}"',
         env=DB_ENV,
+        append_env=True,
     )
 
     check = BashOperator(
         task_id="post_run_check",
         bash_command=f'{PYTHON} "{CHECK_SCRIPT}"',
         env=DB_ENV,
+        append_env=True,
     )
 
     end = EmptyOperator(task_id="end")

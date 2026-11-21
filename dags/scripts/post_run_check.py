@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+import uuid
 import psycopg2
 
 def env(name: str, default: str | None = None) -> str:
@@ -20,9 +21,17 @@ DB = {
     "password": env("DB_PASS"),
 }
 
+RUN_ID = os.getenv("RUN_ID") or f"RUN_{uuid.uuid4().hex[:8]}"
+SQL_LOG = "INSERT INTO etl.etl_log(run_id, step_name, status, message) VALUES (%s,%s,%s,%s);"
+
 def main() -> None:
+    conn = None
     try:
         conn = psycopg2.connect(**DB)
+        with conn.cursor() as cur:
+            cur.execute(SQL_LOG, (RUN_ID, "CHECK", "START", "Post-run data quality check started"))
+        conn.commit()
+
         with conn.cursor() as cur:
             # 1. Đếm số dòng bảng Raw và DW
             cur.execute("SELECT COUNT(*) FROM raw.houseprice_raw;")
@@ -78,20 +87,32 @@ def main() -> None:
             if dw_cnt == 0:
                 raise ValueError("CHECK FAILED: Bảng Fact không có dữ liệu (dw_cnt = 0)!")
 
-        conn.close()
+            # 5. Ghi log SUCCESS vào etl.etl_log
+            cur.execute(SQL_LOG, (RUN_ID, "CHECK", "SUCCESS", f"raw={raw_cnt}, dw={dw_cnt}, total_sales={float(total_sales):,.2f}"))
+        conn.commit()
 
         print("==================================================================")
         print("                   DATA QUALITY CHECK REPORT                      ")
         print("==================================================================")
-        print(f"CHECK OK | raw_cnt={raw_cnt} | dw_cnt={dw_cnt}")
+        print(f"CHECK OK | RUN_ID={RUN_ID} | raw_cnt={raw_cnt} | dw_cnt={dw_cnt}")
         print(f"Dimensions: location={loc_cnt} | building={bldg_cnt} | amenities={amen_cnt} | contract={contract_cnt}")
         print(f"Sale Price: Total=${float(total_sales):,.2f} | Avg=${float(avg_price):,.2f} | Min=${float(min_price):,.2f} | Max=${float(max_price):,.2f}")
         print("==================================================================")
         sys.exit(0)
 
     except Exception as e:
-        print(f"CHECK FAILED | ERROR={e}")
+        if conn is not None:
+            try:
+                conn.rollback()
+                conn.autocommit = True
+                with conn.cursor() as cur:
+                    cur.execute(SQL_LOG, (RUN_ID, "CHECK", "FAIL", str(e)))
+            except Exception:
+                pass
+            finally:
+                conn.close()
+        print(f"CHECK FAILED | RUN_ID={RUN_ID} | ERROR={e}")
         sys.exit(1)
-
-if __name__ == "__main__":
-    main()
+    finally:
+        if conn and not conn.closed:
+            conn.close()
