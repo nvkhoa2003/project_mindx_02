@@ -22,13 +22,23 @@ default_args = {
     "retry_delay": timedelta(minutes=1),
 }
 
+# Load .env if running in local environment outside container
+_env_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".env"))
+if os.path.exists(_env_file):
+    with open(_env_file, encoding="utf-8") as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if _line and not _line.startswith("#") and "=" in _line:
+                _k, _v = _line.split("=", 1)
+                os.environ.setdefault(_k.strip(), _v.strip())
+
 DB_ENV = {
-    "DB_HOST": os.getenv("DB_HOST", "postgres"),
-    "DB_PORT": os.getenv("DB_PORT", "5432"),
-    "DB_NAME": os.getenv("DB_NAME", "houseprice_db"),
-    "DB_USER": os.getenv("DB_USER", ""),
-    "DB_PASS": os.getenv("DB_PASS", ""),
-    "CSV_PATH": os.getenv("CSV_PATH", "/opt/airflow/data/Houseprice_raw.csv"),
+    "DB_HOST": os.environ.get("DB_HOST", "postgres"),
+    "DB_PORT": os.environ.get("DB_PORT", "5432"),
+    "DB_NAME": os.environ.get("DB_NAME", "houseprice_db"),
+    "DB_USER": os.environ["DB_USER"],
+    "DB_PASS": os.environ["DB_PASS"],
+    "CSV_PATH": os.environ.get("CSV_PATH", "/opt/airflow/data/Houseprice_raw.csv"),
     "RUN_ID": "{{ run_id }}",
 }
 
