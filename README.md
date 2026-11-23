@@ -86,7 +86,7 @@ LIMIT 20;
 
 Thư mục chứa ảnh minh chứng: `docs/`
 - **Đồ thị DAG Airflow hoàn thành xanh tất cả các task**:
-  ![DAG Graph](docs/01_dag_dw_raph.png)
+  ![DAG Graph](docs/01_dag_dw_graph.png)
 - **Dữ liệu Fact & Dimension trong Data Warehouse**:
   ![DW Data](docs/02_dw_data.png)
 - **Nhật ký bảng `etl.etl_log` hiển thị trọn vẹn 1 `run_id`**:
